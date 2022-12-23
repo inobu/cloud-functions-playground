@@ -16,8 +16,8 @@
   "dependencies": {
     "@types/knex": "^0.16.1",
     "@types/pg": "^7.14.1",
-    "firebase-admin": "^11.3.0",
-    "firebase-functions": "^3.3.0",
+    "firebase-admin": "^11.4.1",
+    "firebase-functions": "^3.24.1",
     "knex": "^0.20.7",
     "pg": "^7.17.0"
   },
