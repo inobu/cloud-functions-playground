@@ -19,7 +19,7 @@
     "firebase-admin": "^11.4.1",
     "firebase-functions": "^3.24.1",
     "knex": "^2.4.0",
-    "pg": "^7.17.0"
+    "pg": "^8.11.1"
   },
   "devDependencies": {
     "tslint": "^5.12.0",
