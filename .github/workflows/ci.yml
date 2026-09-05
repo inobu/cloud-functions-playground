@@ -43,7 +43,7 @@ jobs:
         run: npm run lint
 
       - name: Build
-        run: npm run build
+        run: npx --yes -p typescript@5.9.2 tsc
 
       - name: Smoke test
         run: npm test
