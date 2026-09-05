@@ -1,20 +1,20 @@
 import * as functions from 'firebase-functions';
 // import * as firebase from 'firebase-admin';
-import * as Knex from 'knex'
+import { knex as createKnex, Knex } from 'knex';
 
 const connect = () => {
   // Configure which instance and what database user to connect with.
   // Remember - storing secrets in plaintext is potentially unsafe. Consider using
   // something like https://cloud.google.com/kms/ to help keep secrets secret.
-    const config: Knex.PgConnectionConfig = {
+  const config = {
     user: functions.config().database.user,
     password: functions.config().database.password,
     database: functions.config().database.database,
     host: `/cloudsql/${functions.config().database.host}`
   };
-    
+
   // Establish a connection to the database
-  const knexClient = Knex({
+  const knexClient = createKnex({
     client: 'pg',
     connection: config,
   });
@@ -60,16 +60,12 @@ const knex = connect();
  * @returns {Promise}
  */
 const insertVote = async (knexParam: Knex, uid: string) => {
-  try {
-      return await knexParam('users').insert({ uid: uid } );
-  } catch (err) {
-    throw Error(err);
-  }
+  return knexParam('users').insert({ uid });
 };
 
 export const registerHook = functions.auth.user().onCreate(async (user, context) => {
-    await insertVote(knex, user.uid).catch((err: Error) => {
-        // firebase.auth().deleteUser(user.uid)
-        console.log(err)
-    })
-})
+  await insertVote(knex, user.uid).catch((err: Error) => {
+    // firebase.auth().deleteUser(user.uid)
+    console.log(err);
+  });
+});
