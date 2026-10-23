@@ -36,8 +36,7 @@ jobs:
         run: npm ci
 
       - name: Audit dependencies
-        continue-on-error: true
-        run: npm audit --audit-level=high
+        run: npm audit --include=dev --audit-level=low
 
       - name: Lint
         run: npm run lint
