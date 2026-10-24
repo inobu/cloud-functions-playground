@@ -41,6 +41,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Test lint policy
+        run: npm run test:lint
+
       - name: Build
         run: npm run build
 
