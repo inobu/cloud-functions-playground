@@ -102,9 +102,10 @@ The CI audit remains required and unchanged:
 npm audit --include=dev --audit-level=low
 ```
 
-No `continue-on-error`, overrides, advisory exclusions or acceptance waivers
-are added. No application code, TypeScript version or direct runtime dependency
-range changes.
+The October migration added no `continue-on-error`, overrides, advisory exclusions
+or acceptance waivers, and did not change application code, the TypeScript version
+or direct runtime dependency ranges. The November follow-up below adds temporary,
+scoped dependency overrides while preserving the same required audit.
 
 A fresh baseline audit on 2026-10-25 JST reports **one High finding**:
 [`GHSA-27r3-jxmh-p828`](https://github.com/expressjs/body-parser/security/advisories/GHSA-27r3-jxmh-p828).
@@ -116,6 +117,42 @@ from 6.16.0 to 6.16.1 as required by the fixed parser's `^6.16.1` range. These a
 the only runtime package version changes; other lockfile changes remove TSLint,
 install the replacement tools, or rearrange their shared dependencies.
 
+## November 2026 security dependency update
+
+The 2026-11-12 audit of the unchanged migration commit reports 14 Moderate
+findings from [glob](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) and
+[minimatch](https://github.com/advisories/GHSA-g3hv-75wg-m249). Both advisories
+were published after the October migration. PR #49 fixes the separate
+[fast-xml-parser Low finding](https://github.com/advisories/GHSA-474x-hrwr-fgx4);
+the Moderate findings are already present on its base.
+
+- Update the locked `@google-cloud/firestore` from 9.3.1 to 9.4.1 within Firebase
+  Admin's existing `^9.1.0` range. Its `@google-cloud/firestore-api` dependency
+  moves from 0.2.0 to 0.7.1, removing the old google-gax 5 / rimraf 5 / glob 10
+  dependency path and its minimatch 9 copy. No direct runtime range changes.
+- Keep ESLint 10.13.0, typescript-eslint 8.72.0 and the explicit lint rules.
+  Override only the minimatch dependency of `eslint@10.13.0`,
+  `@eslint/config-array@0.23.5` and
+  `@typescript-eslint/typescript-estree@8.72.0` to 11.0.8. This is a real
+  dependency replacement, not an advisory exclusion or audit waiver.
+
+These overrides cross minimatch's major version and are temporary. The affected
+consumers use `Minimatch.match()` or the named `minimatch()` function, which v11
+retains. Upstream has merged the corresponding dependency updates in
+[ESLint #21492](https://github.com/eslint/eslint/pull/21492),
+[config-array #535](https://github.com/eslint/rewrite/pull/535) and
+[typescript-eslint #13145](https://github.com/typescript-eslint/typescript-eslint/pull/13145).
+As checked on 2026-11-12, the published stable versions (10.14.0, 0.23.5 and
+8.72.2 respectively) still require minimatch 10. Updating to those versions
+alone does not fix this advisory. No forced downgrade or prerelease is used.
+
+When stable releases incorporate the fixes, update the affected parent packages
+within the existing ESLint 10 / typescript-eslint 8 major versions, remove the
+three overrides, regenerate the lockfile and run every check below. Confirm that
+all installed minimatch copies are outside the advisory range. The exact parent
+versions in the overrides prevent them from silently applying to future upgrades;
+the full audit remains the gate for any newly resolved vulnerable dependency.
+
 ## Verification
 
 From `functions`, under Node.js 22:
@@ -123,10 +160,12 @@ From `functions`, under Node.js 22:
 ```sh
 npm ci --include=dev
 npm audit --include=dev --audit-level=low
+npm audit --omit=dev --audit-level=low
 npm run lint
 npm run test:lint
 npm run build
 npm test
+npm ls --all
 ```
 
 The lint policy tests create isolated modules under `src`, use the real typed
@@ -134,8 +173,11 @@ configuration, and remove their temporary files afterward. They check accepted
 and rejected Promises, casts, void results, dependency/import forms, manifest
 dependency categories, important legacy exceptions and all nine warning
 categories. Separate CLI invocations check that errors exit 1 and warnings exit
-0. CI runs these regression cases in addition to the existing lint/build/smoke
-steps and required audit.
+0. Five file-selection cases cover globstar, brace expansion, extglobs, exclusions
+and negations; additional assertions preserve the source, compiled-output and
+node_modules ignore policy. CI runs these regression cases in addition to the
+existing lint/build/smoke steps and required audit. The production-only audit is
+an additional local check, not a replacement for CI's full audit.
 
 The existing smoke test only verifies that the compiled entry point exists and
 is nonempty; it does not invoke a deployed function or a live database.
