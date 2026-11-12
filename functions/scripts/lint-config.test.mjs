@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { ESLint } from 'eslint';
 
@@ -106,6 +106,31 @@ try {
     }
   }
 
+  // Exercise the matcher APIs used by ESLint and config-array while minimatch
+  // is temporarily overridden. Preserve both file selection and ignore rules.
+  const patternRoot = `src/${basename(directory)}`;
+  const selectionCases = [
+    ['globstar', `${patternRoot}/**/manifest-runtime.ts`, [], ['manifest/manifest-runtime.ts']],
+    ['brace', `${patternRoot}/{handled,returned}.ts`, [], ['handled.ts', 'returned.ts']],
+    ['extglob', `${patternRoot}/@(handled|returned).ts`, [], ['handled.ts', 'returned.ts']],
+    ['ignore', `${patternRoot}/{handled,returned}.ts`, [`${patternRoot}/returned.ts`], ['handled.ts']],
+    ['negation', `${patternRoot}/{handled,returned}.ts`, [
+      `${patternRoot}/*.ts`, `!${patternRoot}/handled.ts`,
+    ], ['handled.ts']],
+  ];
+  for (const [name, pattern, ignorePatterns, expected] of selectionCases) {
+    const selected = await new ESLint({ cwd: root, ignorePatterns }).lintFiles([pattern]);
+    assert.deepEqual(selected.map(result => result.filePath).sort(),
+      expected.map(file => join(directory, file)).sort(), `${name}: selected files changed`);
+    for (const result of selected) {
+      assert.deepEqual(result.messages, [], `${name}: valid code was rejected`);
+    }
+  }
+  const ignorePolicy = new ESLint({ cwd: root });
+  assert.equal(await ignorePolicy.isPathIgnored(join(root, 'src', 'index.ts')), false);
+  assert.equal(await ignorePolicy.isPathIgnored(join(root, 'lib', 'index.js')), true);
+  assert.equal(await ignorePolicy.isPathIgnored(join(root, 'node_modules', 'example', 'index.ts')), true);
+
   // Check actual exit behavior as well as diagnostic severity.
   const cli = join(require.resolve('eslint/package.json'), '..', 'bin', 'eslint.js');
   for (const [name, expected] of [['var', 0], ['floating', 1]]) {
@@ -114,7 +139,7 @@ try {
     });
     assert.equal(result.status, expected, `${name}: ${result.error ?? ''}\n${result.stdout}\n${result.stderr}`);
   }
-  console.log(`Passed ${cases.length} lint policy cases; errors block and warnings do not.`);
+  console.log(`Passed ${cases.length} lint policy cases and ${selectionCases.length} file-selection cases; errors block and warnings do not.`);
 } finally {
   rmSync(directory, { recursive: true, force: true });
 }
